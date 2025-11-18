@@ -158,7 +158,7 @@ Usa el menú:
 
 /mixer: Te pedirá varias URLs y creará una mezcla.
 
-/create_update_playlist: Escaneará playlists.txt y actualizará tus listas.
+/updater: Escaneará playlists.txt y creará o actualizará tus listas.
 
 ## ⚠️ Solución de Problemas
 
