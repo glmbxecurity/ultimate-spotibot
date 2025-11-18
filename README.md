@@ -1,6 +1,7 @@
 # 🎧 Ultimate SpotiBOT & Spotify CLI Tools
 
-¡Bienvenido a Ultimate SpotiBOT! Este proyecto es una suite de herramientas de automatización para Spotify escrita en Python. Permite gestionar, analizar y actualizar tus playlists de forma inteligente.
+¡Bienvenido a Ultimate SpotiBOT! Este proyecto sirve para unificar todos los proyectos anteriores relacionados con herramientas cli y bots de Spotify.  
+Es una suite de herramientas de automatización para Spotify escrita en Python. Permite gestionar, analizar y actualizar tus playlists de forma inteligente.
 
 El proyecto incluye dos interfaces para usar las mismas herramientas:
 
