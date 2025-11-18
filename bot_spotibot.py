@@ -24,16 +24,17 @@ from telegram.ext import (
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth, SpotifyClientCredentials
 
-# --- CONFIGURACIÓN (EDITAR AQUÍ) ---
-TELEGRAM_TOKEN = "PON_AQUI_TU_TOKEN_DE_TELEGRAM"
+# --- CONFIGURACIÓN (YA EDITADA) ---
+TELEGRAM_TOKEN = "PEGA AQUI TU TOKEN DE TELEGRAM BOT"
 
-SPOTIPY_CLIENT_ID = "d03aa02f8eee4816ad49125646d00260"
-SPOTIPY_CLIENT_SECRET = "32ef80a08b8b475198d06ee284d5d245"
+SPOTIPY_CLIENT_ID = "PEGA AQUI TU CLIENT ID DE SPOTIFY"
+SPOTIPY_CLIENT_SECRET = "PEGA AQUI TU SECRET ID DE TELEGRAM"
+# Usamos 127.0.0.1 para evitar problemas en entornos sin navegador
 SPOTIPY_REDIRECT_URI = "http://127.0.0.1:8888/callback"
 
-# IDs de Telegram autorizados (para funciones de escritura como mixer/creator)
-# Sustituye estos números por tu ID de Telegram (puedes verlo con @userinfobot)
-AUTHORIZED_USER_IDS = {942135888, 123456789}
+# IDs de Telegram autorizados a usar el bot (para funciones de escritura como mixer/creator)
+# ¡IMPORTANTE! esto es para que nadie pueda manipular tus playlists si no está autorizado, ya que el ID de spotify será de tu cuenta
+AUTHORIZED_USER_IDS = {123456789, 9887654412}
 
 # Scope permisos completos
 SCOPE = "playlist-read-private playlist-modify-private ugc-image-upload playlist-modify-public user-library-read"
@@ -77,8 +78,6 @@ def init_spotify_auth():
             open_browser=False  # Importante para servidores sin GUI
         )
         
-        # Creamos el cliente. Si no hay token válido, spotipy intentará usar input()
-        # pero a veces es mejor forzar el flujo manual si falla.
         sp = spotipy.Spotify(auth_manager=auth_manager)
         
         # Intentamos una llamada simple para verificar o disparar el auth flow
@@ -96,7 +95,6 @@ def init_spotify_auth():
         print("2. Pégala en tu navegador y autoriza.")
         print("3. Copia la URL a la que te redirige (localhost/127.0.0.1...) y pégala aquí abajo.")
         print("-" * 60)
-        # Si spotipy no disparó el input automáticamente, lo hacemos manualmente:
         try:
             auth_url = auth_manager.get_authorize_url()
             print(f"🔗 URL DE AUTORIZACIÓN:\n{auth_url}\n")
@@ -104,7 +102,6 @@ def init_spotify_auth():
             code = auth_manager.parse_response_code(response)
             auth_manager.get_access_token(code)
             
-            # Reintentamos conectar
             sp_global = spotipy.Spotify(auth_manager=auth_manager)
             user = sp_global.current_user()
             sp_user_id_global = user['id']
@@ -132,12 +129,13 @@ def save_txt_set(path, new_items):
 # ============================================================================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # HEMOS SIMPLIFICADO EL COMANDO AQUI PARA EVITAR ERRORES
     txt = (
         "🎵 **Bienvenido al Super SpotiBOT** 🎵\n\n"
         "Selecciona una herramienta:\n\n"
         "1️⃣ /rank - Rankear canciones (Popularidad)\n"
         "2️⃣ /mixer - Mezclar varias playlists\n"
-        "3️⃣ /create_update_playlist - Actualizar novedades por género\n\n"
+        "3️⃣ /updater - Actualizar novedades por género\n\n"
         "❌ /cancel - Detener operación actual"
     )
     await update.message.reply_markdown(txt)
@@ -180,7 +178,6 @@ async def rank_handle_number(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await update.message.reply_text("⏳ Procesando ranking...")
 
     try:
-        # Usamos el cliente global autenticado
         results = sp_global.playlist_items(url, additional_types=["track"])
         tracks = results["items"]
         while results["next"]:
@@ -213,7 +210,6 @@ async def rank_handle_number(update: Update, context: ContextTypes.DEFAULT_TYPE)
         for i, row in top_tracks.iterrows():
             msg_lines.append(f"{i+1}. {row['track_name']} - {row['artist']} ({row['popularity']})")
 
-        # Enviar en trozos si es muy largo
         full_msg = "\n".join(msg_lines)
         if len(full_msg) > 4000:
             for i in range(0, len(msg_lines), 40):
@@ -238,7 +234,7 @@ async def enter_mixer_mode(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⛔ No tienes permiso para usar funciones de escritura.")
         return ConversationHandler.END
 
-    context.user_data["mixer_mode"] = "normal" # Default
+    context.user_data["mixer_mode"] = "normal"
     msg = (
         "🍹 **MODO MIXER**\n"
         "Envía 2 o más URLs de playlists separadas por espacio.\n\n"
@@ -261,7 +257,6 @@ async def mixer_set_mode_command(update: Update, context: ContextTypes.DEFAULT_T
 async def mixer_process_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     
-    # Capturar comando /modo si el usuario lo escribe sin hacer click
     if text.lower().startswith("/modo"):
         if "mix" in text.lower():
             context.user_data["mixer_mode"] = "mix"
@@ -324,7 +319,6 @@ async def mixer_process_input(update: Update, context: ContextTypes.DEFAULT_TYPE
         new_name = f"Mixer {mode.upper()} - {datetime.datetime.now().strftime('%d/%m %H:%M')}"
         new_playlist = sp_global.user_playlist_create(sp_user_id_global, new_name, public=False, description="Created via Super SpotiBot Telegram")
         
-        # Añadir en lotes
         for i in range(0, len(final_uris), 100):
             sp_global.playlist_add_items(new_playlist['id'], final_uris[i:i+100])
 
@@ -367,7 +361,6 @@ async def creator_process_days(update: Update, context: ContextTypes.DEFAULT_TYP
 
     msg_log = ""
     try:
-        # Cargar playlists
         playlists_map = {}
         with open("playlists.txt", "r", encoding="utf-8") as f:
             for line in f:
@@ -383,11 +376,9 @@ async def creator_process_days(update: Update, context: ContextTypes.DEFAULT_TYP
         global_tracks = load_txt_set("global_tracks.txt")
         
         for genre, pids in playlists_map.items():
-            # 1. Buscar/Crear Playlist Destino
             target_name = f"{genre} {datetime.date.today().year}"
             target_id = None
             
-            # Búsqueda simplificada
             user_pls = sp_global.current_user_playlists(limit=50)
             for pl in user_pls['items']:
                 if pl['name'] == target_name:
@@ -397,7 +388,6 @@ async def creator_process_days(update: Update, context: ContextTypes.DEFAULT_TYP
             if not target_id:
                 new_pl = sp_global.user_playlist_create(sp_user_id_global, target_name, public=False, description=f"Auto-gen: {genre}")
                 target_id = new_pl['id']
-                # Imagen
                 img_path = f"images/{genre.lower().replace(' ', '_')}.jpg"
                 if os.path.exists(img_path):
                     try:
@@ -405,7 +395,6 @@ async def creator_process_days(update: Update, context: ContextTypes.DEFAULT_TYP
                             sp_global.playlist_upload_cover_image(target_id, base64.b64encode(img.read()))
                     except: pass
 
-            # 2. Procesar canciones
             tracks_to_add = []
             cutoff = datetime.datetime.now(datetime.timezone.utc) - timedelta(days=days)
             
@@ -426,7 +415,7 @@ async def creator_process_days(update: Update, context: ContextTypes.DEFAULT_TYP
                                 if added >= cutoff:
                                     if tid not in local_hist and tid not in global_tracks:
                                         tracks_to_add.append(turi)
-                                        global_tracks.add(tid) # Actualizar memoria
+                                        global_tracks.add(tid)
                                         new_local_items.append(tid)
                             except: pass
                         res = sp_global.next(res) if res['next'] else None
@@ -437,13 +426,11 @@ async def creator_process_days(update: Update, context: ContextTypes.DEFAULT_TYP
                 except Exception as e:
                     logger.warning(f"Error en playlist {pid}: {e}")
 
-            # 3. Añadir a Spotify
             if tracks_to_add:
                 unique_uris = list(set(tracks_to_add))
                 for i in range(0, len(unique_uris), 100):
                     sp_global.playlist_add_items(target_id, unique_uris[i:i+100])
                 
-                # Guardar en global (IDs)
                 new_ids = [u.split(":")[-1] for u in unique_uris]
                 save_txt_set("global_tracks.txt", new_ids)
                 msg_log += f"✅ {genre}: +{len(unique_uris)} canciones.\n"
@@ -463,12 +450,10 @@ async def creator_process_days(update: Update, context: ContextTypes.DEFAULT_TYP
 # ============================================================================
 
 def main():
-    # 1. Primero asegurar autenticación de Spotify en Consola
     if not init_spotify_auth():
         print("❌ No se pudo autenticar en Spotify. Saliendo...")
         return
 
-    # 2. Iniciar Bot de Telegram
     nest_asyncio.apply()
     print("🤖 Iniciando Bot de Telegram...")
     
@@ -480,7 +465,8 @@ def main():
             CHOOSING_MODE: [
                 CommandHandler("rank", enter_rank_mode),
                 CommandHandler("mixer", enter_mixer_mode),
-                CommandHandler("create_update_playlist", enter_creator_mode)
+                # COMANDO ACTUALIZADO
+                CommandHandler("updater", enter_creator_mode)
             ],
             RANK_URL: [MessageHandler(filters.TEXT & ~filters.COMMAND, rank_handle_playlist)],
             RANK_NUMBER: [MessageHandler(filters.TEXT & ~filters.COMMAND, rank_handle_number)],
