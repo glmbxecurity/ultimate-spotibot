@@ -1,36 +1,36 @@
-🎧 Ultimate SpotiBOT & Spotify CLI Tools
+# 🎧 Ultimate SpotiBOT & Spotify CLI Tools
 
 ¡Bienvenido a Ultimate SpotiBOT! Este proyecto es una suite de herramientas de automatización para Spotify escrita en Python. Permite gestionar, analizar y actualizar tus playlists de forma inteligente.
 
 El proyecto incluye dos interfaces para usar las mismas herramientas:
 
-🤖 Bot de Telegram: Para controlar todo desde el chat de tu móvil o PC.
+* 🤖 Bot de Telegram: Para controlar todo desde el chat de tu móvil o PC.
 
-💻 CLI (Consola): Para ejecutar scripts directamente en tu terminal sin necesidad de Telegram.
+* 💻 CLI (Consola): Para ejecutar scripts directamente en tu terminal sin necesidad de Telegram.
 
-🚀 Funcionalidades
+## 🚀 Funcionalidades
 
 Ambas versiones (Telegram y CLI) incluyen las siguientes herramientas:
 
-📊 Ranking de Popularidad: Analiza cualquier playlist y devuelve las canciones ordenadas por su índice de popularidad actual.
+* 📊 Ranking de Popularidad: Analiza cualquier playlist y devuelve las canciones ordenadas por su índice de popularidad actual.
 
-🍹 Party Mixer: Combina múltiples playlists en una sola.
+* 🍹 Party Mixer: Combina múltiples playlists en una sola.
 
-Modo Normal: Añade las canciones de una lista tras otra.
+  * Modo Normal: Añade las canciones de una lista tras otra.
 
-Modo Mix: Intercala canciones para una mezcla perfecta.
+  * Modo Mix: Intercala canciones para una mezcla perfecta.
 
-🆕 Actualizador Automático: Lee un fichero de fuentes (playlists.txt) y busca canciones nuevas (agregadas en los últimos X días) para crear nuevas playlists por género o añadirlas automáticamente a tus propias playlists.
+* 🆕 Actualizador Automático: Lee un fichero de fuentes (playlists.txt) y busca canciones nuevas (agregadas en los últimos X días) para crear nuevas playlists por género o añadirlas automáticamente a tus propias playlists.
 
-🛠️ Requisitos Previos
+## 🛠️ Requisitos Previos
 
-Python 3.8 o superior.
+* Python 3.8 o superior.
 
-Una cuenta de Spotify (se recomienda Premium para evitar límites de API, pero funciona con Free).
+* Una cuenta de Spotify (se recomienda Premium para evitar límites de API, pero funciona con Free).
 
-Una cuenta de Telegram (para la versión Bot).
+* Una cuenta de Telegram (para la versión Bot).
 
-📦 Instalación
+## 📦 Instalación
 
 Clona este repositorio:
 ```bash
@@ -47,7 +47,7 @@ pip install spotipy python-telegram-bot pandas nest_asyncio
 Prepara la estructura de carpetas:
 El bot necesita ciertos archivos para funcionar correctamente. Asegúrate de que tu carpeta tenga esta estructura:
 
-/MiProyecto/
+/ultimate-spotibot/
 ├── bot_spotibot.py      # Versión Telegram
 ├── cli_spotibot.py         # Versión Consola (CLI)
 ├── playlists.txt          # (Ver formato abajo)
@@ -56,7 +56,7 @@ El bot necesita ciertos archivos para funcionar correctamente. Asegúrate de que
 └── images/                # Carpeta para portadas de playlists
 
 
-⚙️ Configuración (¡Importante!)
+## ⚙️ Configuración (¡Importante!)
 
 Para que el bot funcione, necesitas obtener credenciales de Spotify y de Telegram.
 
@@ -99,7 +99,7 @@ TELEGRAM_TOKEN = "PEGA_AQUI_TU_TOKEN_DE_TELEGRAM"
 AUTHORIZED_USER_IDS = {123456789} # Tu chat ID numérico de Telegram
 
 
-📄 Archivos de Datos
+### 📄 Archivos de Datos
 
 playlists.txt
 
@@ -118,7 +118,7 @@ Si quieres que tus playlists generadas tengan portada, guarda imágenes .jpg en 
 
 Ejemplo: rock.jpg, hiphop.jpg.
 
-🎮 Cómo Usar
+### 🎮 Cómo Usar
 
 Opción A: Versión CLI (Consola)
 
@@ -160,7 +160,7 @@ Usa el menú:
 
 /create_update_playlist: Escaneará playlists.txt y actualizará tus listas.
 
-⚠️ Solución de Problemas
+## ⚠️ Solución de Problemas
 
 Error "Redirect URI": Asegúrate de que en el Spotify Dashboard has puesto exactamente http://127.0.0.1:8888/callback.
 
@@ -168,6 +168,6 @@ El navegador no carga la página 127.0.0.1: Es normal. Cuando autorizas en Spoti
 
 Permission Denied: Asegúrate de que tu ID de Telegram está en la lista AUTHORIZED_USER_IDS.
 
-📄 Licencia
+## 📄 Licencia
 
 Este proyecto es de uso personal y educativo. No está afiliado con Spotify.
