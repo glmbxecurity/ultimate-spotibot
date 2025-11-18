@@ -168,6 +168,8 @@ El navegador no carga la página 127.0.0.1: Es normal. Cuando autorizas en Spoti
 
 Permission Denied: Asegúrate de que tu ID de Telegram está en la lista AUTHORIZED_USER_IDS.
 
+Las playlist generadas por Spotify no funcionan, ni para ranking ni para crear playlists
+
 ## 📄 Licencia
 
 Este proyecto es de uso personal y educativo. No está afiliado con Spotify.
