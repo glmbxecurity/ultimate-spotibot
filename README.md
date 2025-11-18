@@ -86,7 +86,7 @@ Para que el bot funcione, necesitas obtener credenciales de Spotify y de Telegra
 
 * 3. Configurar los Scripts
 
-Abre los archivos super_spotibot.py y cli_spotibot.py con un editor de texto y rellena las variables al principio del archivo:
+Abre los archivos bot_spotibot.py y cli_spotibot.py con un editor de texto y rellena las variables al principio del archivo:
 ```bash
 # En bot_spotibot.py y cli_spotibot.py
 SPOTIPY_CLIENT_ID = "PEGA_AQUI_TU_CLIENT_ID"
