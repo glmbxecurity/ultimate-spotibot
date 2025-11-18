@@ -10,8 +10,8 @@ import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 
 # --- CONFIGURACIÓN (EDITAR AQUÍ) ---
-SPOTIPY_CLIENT_ID = "d03aa02f8eee4816ad49125646d00260"
-SPOTIPY_CLIENT_SECRET = "32ef80a08b8b475198d06ee284d5d245"
+SPOTIPY_CLIENT_ID = "PEGA AQUI TU SPOTIFY CLIENT ID"
+SPOTIPY_CLIENT_SECRET = "PEGA AQUI TU SPOTIFY CLIENT SECRET"
 # Cambiado a 127.0.0.1 para evitar el warning de deprecated
 SPOTIPY_REDIRECT_URI = "http://127.0.0.1:8888/callback" 
 
