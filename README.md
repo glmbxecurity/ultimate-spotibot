@@ -104,12 +104,12 @@ playlists.txt
 
 Este archivo le dice al "Actualizador" qué playlists debe espiar. El formato es:
 ```bash
-URL_PLAYLIST # GENERO
+URL_PLAYLIST GENERO
 ```
 Ejemplo:
 ```bash
-https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M # ROCK
-https://open.spotify.com/playlist/37i9dQZF1DX0XUsuxWHRQd # HIPHOP
+https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M ROCK
+https://open.spotify.com/playlist/37i9dQZF1DX0XUsuxWHRQd HIPHOP
 ```
 
 Imágenes (images/)
