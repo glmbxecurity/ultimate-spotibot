@@ -46,7 +46,7 @@ pip install spotipy python-telegram-bot pandas nest_asyncio
 
 Prepara la estructura de carpetas:
 El bot necesita ciertos archivos para funcionar correctamente. Asegúrate de que tu carpeta tenga esta estructura:
-
+```bash
 /ultimate-spotibot/
 ├── bot_spotibot.py      # Versión Telegram
 ├── cli_spotibot.py         # Versión Consola (CLI)
@@ -54,13 +54,13 @@ El bot necesita ciertos archivos para funcionar correctamente. Asegúrate de que
 ├── global_tracks.txt      # (Se crea automáticamente)
 ├── data/                  # Carpeta vacía para historiales
 └── images/                # Carpeta para portadas de playlists
-
+```
 
 ## ⚙️ Configuración (¡Importante!)
 
 Para que el bot funcione, necesitas obtener credenciales de Spotify y de Telegram.
 
-1. Spotify Developer (API)
+* 1. Spotify Developer (API)
 
 Ve al Spotify Developer Dashboard e inicia sesión.
 
@@ -75,7 +75,7 @@ Guarda los cambios.
 
 En los ajustes de tu App, copia el Client ID y el Client Secret.
 
-2. Telegram Bot (Solo para la versión Bot)
+* 2. Telegram Bot (Solo para la versión Bot)
 
 Abre Telegram y busca a @BotFather.
 
@@ -85,7 +85,7 @@ Sigue los pasos y obtén tu HTTP API Token.
 
 Averigua tu propio ID de usuario de Telegram (puedes usar @userinfobot para verlo). Esto es necesario para que solo tú puedas usar las funciones de administración.
 
-3. Configurar los Scripts
+* 3. Configurar los Scripts
 
 Abre los archivos super_spotibot.py y console_bot.py con un editor de texto y rellena las variables al principio del archivo:
 
@@ -120,14 +120,14 @@ Ejemplo: rock.jpg, hiphop.jpg.
 
 ### 🎮 Cómo Usar
 
-Opción A: Versión CLI (Consola)
+#### Opción A: Versión CLI (Consola)
 
 Ideal si quieres ejecutar tareas rápidas desde tu ordenador sin abrir Telegram.
 
 Ejecuta el script:
-
+```bash
 python3 cli_spotibot.py
-
+```
 
 Autenticación (Primera vez):
 
@@ -137,14 +137,14 @@ Copia esa URL -> Pégala en tu navegador -> Autoriza -> Copia la URL a la que te
 
 Sigue el menú interactivo por pantalla.
 
-Opción B: Versión Telegram Bot
+#### Opción B: Versión Telegram Bot
 
-Ideal para tener el control siempre a mano.
+Ideal para tener el control siempre a mano desde telegram.
 
 Ejecuta el script:
-
+```bash
 python3 bot_spotibot.py
-
+```
 
 Autenticación: Al igual que la versión CLI, la primera vez verificará las credenciales por la consola antes de arrancar el bot. Sigue los pasos en la terminal si te lo pide.
 
