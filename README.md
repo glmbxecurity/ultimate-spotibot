@@ -40,9 +40,9 @@ cd ultimate-spotibot
 
 Instala las dependencias:
 Ejecuta el siguiente comando para instalar las librerías necesarias (spotipy, python-telegram-bot, pandas, etc.):
-
+```bash
 pip install spotipy python-telegram-bot pandas nest_asyncio
-
+```
 
 Prepara la estructura de carpetas:
 El bot necesita ciertos archivos para funcionar correctamente. Asegúrate de que tu carpeta tenga esta estructura:
