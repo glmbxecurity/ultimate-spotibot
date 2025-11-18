@@ -56,39 +56,38 @@ El bot necesita ciertos archivos para funcionar correctamente. Asegúrate de que
 └── images/                # Carpeta para portadas de playlists
 ```
 
-## ⚙️ Configuración (¡Importante!)
+## ⚙️ Configuración
 
 Para que el bot funcione, necesitas obtener credenciales de Spotify y de Telegram.
 
 * 1. Spotify Developer (API)
 
-Ve al Spotify Developer Dashboard e inicia sesión.
+  * Ve al Spotify Developer Dashboard e inicia sesión.
 
-Haz clic en "Create App".
+  * Haz clic en "Create App".
 
-Dale un nombre (ej: SpotiManager) y una descripción.
+  * Dale un nombre (ej: SpotiManager) y una descripción.
 
-En Redirect URI, es CRUCIAL que añadas exactamente esta dirección:
-http://127.0.0.1:8888/callback
+  * En Redirect URI, es CRUCIAL que añadas exactamente esta dirección: http://127.0.0.1:8888/callback
 
-Guarda los cambios.
+  * Guarda los cambios.
 
-En los ajustes de tu App, copia el Client ID y el Client Secret.
+  * En los ajustes de tu App, copia el Client ID y el Client Secret.
 
 * 2. Telegram Bot (Solo para la versión Bot)
 
-Abre Telegram y busca a @BotFather.
+  * Abre Telegram y busca a @BotFather.
 
-Envía el comando /newbot.
+  * Envía el comando /newbot.
 
-Sigue los pasos y obtén tu HTTP API Token.
+  * Sigue los pasos y obtén tu HTTP API Token.
 
-Averigua tu propio ID de usuario de Telegram (puedes usar @userinfobot para verlo). Esto es necesario para que solo tú puedas usar las funciones de administración.
+  * Averigua tu propio ID de usuario de Telegram (puedes usar @userinfobot para verlo). Esto es necesario para que solo tú puedas usar las funciones de administración.
 
 * 3. Configurar los Scripts
 
-Abre los archivos super_spotibot.py y console_bot.py con un editor de texto y rellena las variables al principio del archivo:
-
+Abre los archivos super_spotibot.py y cli_spotibot.py con un editor de texto y rellena las variables al principio del archivo:
+```bash
 # En bot_spotibot.py y cli_spotibot.py
 SPOTIPY_CLIENT_ID = "PEGA_AQUI_TU_CLIENT_ID"
 SPOTIPY_CLIENT_SECRET = "PEGA_AQUI_TU_CLIENT_SECRET"
@@ -97,15 +96,16 @@ SPOTIPY_REDIRECT_URI = "http://127.0.0.1:8888/callback"
 # Solo en bot_spotibot.py
 TELEGRAM_TOKEN = "PEGA_AQUI_TU_TOKEN_DE_TELEGRAM"
 AUTHORIZED_USER_IDS = {123456789} # Tu chat ID numérico de Telegram
-
+```
 
 ### 📄 Archivos de Datos
 
 playlists.txt
 
 Este archivo le dice al "Actualizador" qué playlists debe espiar. El formato es:
-URL_PLAYLIST GENERO
-
+```bash
+URL_PLAYLIST # GENERO
+```
 Ejemplo:
 ```bash
 https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M # ROCK
