@@ -150,6 +150,6 @@ Para tener el control siempre a mano.
 * **Permission Denied / Sin Permiso:**
     * En Telegram: Asegúrate de que tu ID está en `AUTHORIZED_USER_IDS`.
     * En Spotify (`/sort` o `/top`): Asegúrate de que la playlist que intentas editar **es tuya** (creada por tu cuenta). No puedes editar listas de otros usuarios o de Spotify.
-
+    * Las listas creadas por Spotify no funcionan en la mayoría de comandos, mejor usa playlists tuyas o de cualquier otro usuario, sello discográfico, etc.
 ## 📄 Licencia
 Este proyecto es de uso personal y educativo. No está afiliado con Spotify.
