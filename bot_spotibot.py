@@ -23,18 +23,18 @@ from telegram.ext import (
 # Spotify Imports
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth, SpotifyClientCredentials
+from spotipy.exceptions import SpotifyException
 
-# --- CONFIGURACIÓN (YA EDITADA) ---
-TELEGRAM_TOKEN = "PEGA AQUI TU TOKEN DE TELEGRAM BOT"
+# --- CONFIGURACIÓN DE DESARROLLO (NO BORRAR) ---
+TELEGRAM_TOKEN = "PEGA AQUI TU TOKEN DE BOT DE TELEGRAM"
 
-SPOTIPY_CLIENT_ID = "PEGA AQUI TU CLIENT ID DE SPOTIFY"
-SPOTIPY_CLIENT_SECRET = "PEGA AQUI TU SECRET ID DE TELEGRAM"
+SPOTIPY_CLIENT_ID = "PEGA AQUI TU CLIENT ID DE SPOTIFY DEVELOPER"
+SPOTIPY_CLIENT_SECRET = "PEGA AQUI TU SECRET ID DE SPOTIFY DEVELOPER"
 # Usamos 127.0.0.1 para evitar problemas en entornos sin navegador
 SPOTIPY_REDIRECT_URI = "http://127.0.0.1:8888/callback"
 
-# IDs de Telegram autorizados a usar el bot (para funciones de escritura como mixer/creator)
-# ¡IMPORTANTE! esto es para que nadie pueda manipular tus playlists si no está autorizado, ya que el ID de spotify será de tu cuenta
-AUTHORIZED_USER_IDS = {123456789, 9887654412}
+# IDs de Telegram autorizados
+AUTHORIZED_USER_IDS = {942135888, 123456789}
 
 # Scope permisos completos
 SCOPE = "playlist-read-private playlist-modify-private ugc-image-upload playlist-modify-public user-library-read"
@@ -49,22 +49,21 @@ logger = logging.getLogger(__name__)
 # --- ESTADOS DE LA CONVERSACIÓN ---
 (
     CHOOSING_MODE,      # Menú Principal
-    RANK_URL,           # Bot 1: Esperando URL
-    RANK_NUMBER,        # Bot 1: Esperando número
-    MIXER_INPUT,        # Bot 2: Esperando links
-    CREATOR_DAYS        # Bot 3: Esperando días
-) = range(5)
+    RANK_URL,           # Bot 1: Ranking (Lectura)
+    RANK_NUMBER,        # Bot 1: Ranking (Número)
+    MIXER_INPUT,        # Bot 2: Mixer (URLs y Modo)
+    MIXER_NAME,         # Bot 2: Mixer (Nombre Playlist) [NUEVO]
+    CREATOR_DAYS,       # Bot 3: Updater
+    SORT_URL,           # Bot 4: Ordenar (Sort)
+    TOP_URL,            # Bot 5: Top Filter (URL)
+    TOP_NUMBER          # Bot 5: Top Filter (Número)
+) = range(9)
 
 # --- GESTIÓN DE AUTENTICACIÓN SPOTIFY ---
-# Variable global para el cliente de Spotify
 sp_global = None
 sp_user_id_global = None
 
 def init_spotify_auth():
-    """
-    Realiza la autenticación inicial en la consola del servidor.
-    Si no hay token, detiene el flujo hasta que el usuario lo pegue en la consola.
-    """
     global sp_global, sp_user_id_global
     print("\n🔄 Conectando con Spotify...")
     
@@ -75,14 +74,10 @@ def init_spotify_auth():
             redirect_uri=SPOTIPY_REDIRECT_URI,
             scope=SCOPE,
             cache_path="token_cache.json",
-            open_browser=False  # Importante para servidores sin GUI
+            open_browser=False
         )
-        
         sp = spotipy.Spotify(auth_manager=auth_manager)
-        
-        # Intentamos una llamada simple para verificar o disparar el auth flow
         user = sp.current_user()
-        
         sp_global = sp
         sp_user_id_global = user['id']
         print(f"✅ Autenticación exitosa. Logueado como: {user['display_name']} ({sp_user_id_global})")
@@ -90,11 +85,7 @@ def init_spotify_auth():
 
     except Exception as e:
         print("\n⚠️  ATENCIÓN - AUTENTICACIÓN REQUERIDA ⚠️")
-        print("El bot necesita permisos de Spotify para funcionar.")
-        print("1. Copia la URL que aparecerá (o se ha impreso arriba en el error).")
-        print("2. Pégala en tu navegador y autoriza.")
-        print("3. Copia la URL a la que te redirige (localhost/127.0.0.1...) y pégala aquí abajo.")
-        print("-" * 60)
+        print("Sigue los pasos en la consola para autenticar.")
         try:
             auth_url = auth_manager.get_authorize_url()
             print(f"🔗 URL DE AUTORIZACIÓN:\n{auth_url}\n")
@@ -124,40 +115,67 @@ def save_txt_set(path, new_items):
         for item in new_items:
             f.write(f"{item}\n")
 
+def get_all_tracks_from_playlist(playlist_id):
+    """Helper para descargar tracks completos de una lista"""
+    tracks = []
+    results = sp_global.playlist_items(playlist_id)
+    while results:
+        for item in results['items']:
+            if item.get('track'):
+                tracks.append(item['track'])
+        results = sp_global.next(results) if results['next'] else None
+    return tracks
+
+async def check_auth_telegram(update: Update):
+    """Verifica permisos de Telegram."""
+    user_id = update.message.from_user.id
+    if user_id not in AUTHORIZED_USER_IDS:
+        return False
+    return True
+
+def verify_spotify_ownership(playlist_id):
+    """Verifica si la playlist pertenece al usuario autenticado."""
+    try:
+        pl_details = sp_global.playlist(playlist_id)
+        owner_id = pl_details['owner']['id']
+        if owner_id != sp_user_id_global:
+            return False, f"⛔ **Error de Permisos Spotify**\nEsta playlist pertenece a `{owner_id}`, no a ti.\nSpotify solo permite modificar playlists creadas por tu propia cuenta."
+        return True, None
+    except Exception as e:
+        return False, f"❌ Error al verificar playlist: {str(e)}"
+
 # ============================================================================
-#   LÓGICA DEL MENÚ PRINCIPAL DE TELEGRAM
+#   LÓGICA DEL MENÚ PRINCIPAL
 # ============================================================================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # HEMOS SIMPLIFICADO EL COMANDO AQUI PARA EVITAR ERRORES
     txt = (
-        "🎵 **Bienvenido al Super SpotiBOT** 🎵\n\n"
-        "Selecciona una herramienta:\n\n"
-        "1️⃣ /rank - Rankear canciones (Popularidad)\n"
-        "2️⃣ /mixer - Mezclar varias playlists\n"
-        "3️⃣ /updater - Actualizar novedades por género\n\n"
-        "❌ /cancel - Detener operación actual"
+        "🎧 **Panel de Control SpotiBOT**\n\n"
+        "1️⃣ **Analizar Popularidad** (/rank)\n"
+        "2️⃣ **Mezclador de Fiestas** (/mixer)\n"
+        "3️⃣ **Escanear Novedades** (/updater)\n"
+        "4️⃣ **Reordenar mis Listas** (/sort)\n"
+        "5️⃣ **Filtrar Mejores Canciones** (/top)\n\n"
+        "❌ Cancelar operación (/cancel)"
     )
     await update.message.reply_markdown(txt)
     return CHOOSING_MODE
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("❌ Operación cancelada. Escribe /start para volver al menú.")
+    await update.message.reply_text("❌ Operación cancelada. 👉 Para lanzar un nuevo comando pulsa /start")
     return ConversationHandler.END
 
-def check_auth_telegram(user_id):
-    if user_id not in AUTHORIZED_USER_IDS:
-        return False
-    return True
+async def finish_task(update: Update):
+    """Helper para enviar el mensaje estándar al terminar."""
+    await update.message.reply_text("✨ **¡Hecho!**\n👉 Para lanzar un nuevo comando pulsa /start", parse_mode="Markdown")
 
 # ============================================================================
-#   BOT 1: RANKING
+#   BOT 1: RANKING (LECTURA)
 # ============================================================================
-
 async def enter_rank_mode(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "📊 **MODO RANKING**\n"
-        "Envíame el enlace de la playlist de Spotify que quieres analizar."
+        "Envíame el enlace de una playlist y te mostraré un ranking de sus canciones ordenadas por popularidad (de mayor a menor)."
     )
     return RANK_URL
 
@@ -168,176 +186,143 @@ async def rank_handle_playlist(update: Update, context: ContextTypes.DEFAULT_TYP
         return RANK_URL
 
     context.user_data["rank_url"] = url
-    await update.message.reply_text("🔢 ¿Cuántas canciones quieres ver en el top? (Escribe un número o 'all').")
+    await update.message.reply_text("🔢 ¿Cuántas canciones quieres ver en el ranking? (Escribe un número o 'all').")
     return RANK_NUMBER
 
 async def rank_handle_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_input = update.message.text.strip().lower()
-    url = context.user_data.get("rank_url")
-    
-    await update.message.reply_text("⏳ Procesando ranking...")
-
     try:
-        results = sp_global.playlist_items(url, additional_types=["track"])
-        tracks = results["items"]
-        while results["next"]:
-            results = sp_global.next(results)
-            tracks.extend(results["items"])
+        url = context.user_data.get("rank_url")
+        n_str = update.message.text.strip().lower()
         
-        data_list = []
-        for item in tracks:
-            if item.get("track"):
-                t = item["track"]
-                data_list.append({
-                    "track_name": t["name"],
-                    "popularity": t["popularity"],
-                    "artist": t["artists"][0]["name"]
-                })
-
-        df = pd.DataFrame(data_list).sort_values(by="popularity", ascending=False)
+        await update.message.reply_text("⏳ Analizando popularidad...")
+        tracks = get_all_tracks_from_playlist(url)
         
-        if user_input == "all":
-            n = len(df)
-        else:
-            try:
-                n = int(user_input)
-            except:
-                await update.message.reply_text("❌ Número inválido. Escribe un número o 'all'.")
-                return RANK_NUMBER
-
-        top_tracks = df.head(n)
-        msg_lines = [f"🏆 **Top {n} Popularidad**"]
-        for i, row in top_tracks.iterrows():
-            msg_lines.append(f"{i+1}. {row['track_name']} - {row['artist']} ({row['popularity']})")
-
-        full_msg = "\n".join(msg_lines)
-        if len(full_msg) > 4000:
-            for i in range(0, len(msg_lines), 40):
-                chunk = "\n".join(msg_lines[i:i+40])
-                await update.message.reply_text(chunk)
-        else:
-            await update.message.reply_text(full_msg)
-
+        tracks.sort(key=lambda x: x['popularity'], reverse=True)
+        
+        n = len(tracks) if n_str == 'all' else int(n_str)
+        top = tracks[:n]
+        
+        msg = [f"🏆 **Top {n} Popularidad**"]
+        for i, t in enumerate(top):
+            msg.append(f"{i+1}. {t['name']} - {t['artists'][0]['name']} ({t['popularity']})")
+            
+        text = "\n".join(msg)
+        # Dividir si es muy largo
+        for i in range(0, len(text), 4000):
+            await update.message.reply_text(text[i:i+4000])
+            
     except Exception as e:
         logger.error(e)
         await update.message.reply_text(f"❌ Error: {str(e)}")
 
-    await update.message.reply_text("\n✅ Ranking finalizado. Usa /start para volver al menú.")
+    await finish_task(update)
     return ConversationHandler.END
 
 # ============================================================================
 #   BOT 2: PARTY MIXER
 # ============================================================================
-
 async def enter_mixer_mode(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not check_auth_telegram(update.message.from_user.id):
-        await update.message.reply_text("⛔ No tienes permiso para usar funciones de escritura.")
-        return ConversationHandler.END
-
-    context.user_data["mixer_mode"] = "normal"
+    if not await check_auth_telegram(update): return ConversationHandler.END
+    context.user_data["mixer_mode"] = "normal" # Reset a normal por defecto
+    
     msg = (
         "🍹 **MODO MIXER**\n"
-        "Envía 2 o más URLs de playlists separadas por espacio.\n\n"
-        "⚙️ Configuración actual: `Modo Normal` (una tras otra)\n"
-        "Si quieres cambiar a intercalado, escribe `/modo mix` antes de enviar los links."
+        "Aquí puedes fusionar varias playlists en una sola.\n\n"
+        "**Instrucciones:**\n"
+        "1. Envíame los enlaces de las playlists separados por un **espacio**.\n"
+        "2. Por defecto el modo es **Normal** (una lista detrás de otra).\n"
+        "3. Si quieres mezclar canciones alternadas, escribe `/modo mix` antes de enviar los links.\n"
+        "4. Si quieres volver al modo secuencial, escribe `/modo normal`.\n\n"
+        "Cuando me envíes los enlaces, te preguntaré el nombre para la nueva playlist."
     )
     await update.message.reply_markdown(msg)
     return MIXER_INPUT
 
 async def mixer_set_mode_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    args = context.args
-    if args and args[0].lower() == 'mix':
+    text = update.message.text.lower()
+    if "mix" in text:
         context.user_data["mixer_mode"] = "mix"
-        await update.message.reply_text("🔀 Modo cambiado a: **MIX** (Intercalado). Ahora envía los links.")
+        await update.message.reply_text("🔀 **Modo MIX activado:** Las canciones se alternarán (1, 1, 1...).")
     else:
         context.user_data["mixer_mode"] = "normal"
-        await update.message.reply_text("➡️ Modo cambiado a: **NORMAL** (Secuencial). Ahora envía los links.")
+        await update.message.reply_text("➡️ **Modo NORMAL activado:** Las playlists se añadirán una tras otra.")
     return MIXER_INPUT
 
 async def mixer_process_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     
+    # Gestionar comandos de modo si el usuario los escribe manual
     if text.lower().startswith("/modo"):
         if "mix" in text.lower():
             context.user_data["mixer_mode"] = "mix"
-            await update.message.reply_text("🔀 Modo Mix activado.")
+            await update.message.reply_text("🔀 Modo MIX activado.")
         else:
             context.user_data["mixer_mode"] = "normal"
-            await update.message.reply_text("➡️ Modo Normal activado.")
+            await update.message.reply_text("➡️ Modo NORMAL activado.")
         return MIXER_INPUT
 
-    playlist_ids = []
-    for part in text.split():
-        if "playlist/" in part:
-            try:
-                pid = part.split("playlist/")[1].split("?")[0]
-                playlist_ids.append(pid)
-            except: pass
-        elif len(part) > 10: 
-            playlist_ids.append(part)
-
-    if len(playlist_ids) < 2:
-        await update.message.reply_text("⚠️ Necesito al menos 2 playlists válidas separadas por espacio.")
+    # Procesar Links
+    pids = [p.split("playlist/")[1].split("?")[0] for p in text.split() if "playlist/" in p]
+    if len(pids) < 2:
+        await update.message.reply_text("⚠️ Necesito al menos **2 enlaces** de playlist válidos separados por espacio.")
         return MIXER_INPUT
 
-    await update.message.reply_text("🍹 Mezclando... espera un momento.")
+    # Guardar IDs y pasar a pedir nombre
+    context.user_data["mixer_pids"] = pids
+    await update.message.reply_text("📝 ¿Qué **nombre** le ponemos a la nueva playlist?")
+    return MIXER_NAME
+
+async def mixer_process_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    playlist_name = update.message.text.strip()
+    pids = context.user_data.get("mixer_pids", [])
+    mode = context.user_data.get("mixer_mode", "normal")
+
+    await update.message.reply_text(f"🍹 Creando mezcla **'{playlist_name}'** en modo **{mode.upper()}**...")
 
     try:
-        playlist_tracks_lists = []
-        for pid in playlist_ids:
-            tracks = []
-            res = sp_global.playlist_items(pid)
-            while res:
-                for item in res['items']:
-                    if item.get('track') and item['track'].get('uri'):
-                        tracks.append(item['track']['uri'])
-                res = sp_global.next(res) if res['next'] else None
-            playlist_tracks_lists.append(tracks)
-
+        tracks_lists = []
+        for pid in pids:
+            tracks = get_all_tracks_from_playlist(pid)
+            tracks_lists.append([t['uri'] for t in tracks])
+            
         final_uris = []
-        mode = context.user_data.get("mixer_mode", "normal")
         
         if mode == 'mix':
-            max_len = max(len(pl) for pl in playlist_tracks_lists)
+            max_len = max(len(l) for l in tracks_lists)
             for i in range(max_len):
-                for pl in playlist_tracks_lists:
-                    if i < len(pl):
-                        if pl[i] not in final_uris:
-                            final_uris.append(pl[i])
+                for l in tracks_lists:
+                    if i < len(l) and l[i] not in final_uris: final_uris.append(l[i])
         else:
             seen = set()
-            for pl in playlist_tracks_lists:
-                for uri in pl:
-                    if uri not in seen:
-                        final_uris.append(uri)
-                        seen.add(uri)
-
+            for l in tracks_lists:
+                for u in l:
+                    if u not in seen:
+                        final_uris.append(u)
+                        seen.add(u)
+        
         if not final_uris:
-            await update.message.reply_text("❌ No se encontraron canciones.")
+            await update.message.reply_text("❌ No se encontraron canciones válidas en las listas.")
             return ConversationHandler.END
 
-        new_name = f"Mixer {mode.upper()} - {datetime.datetime.now().strftime('%d/%m %H:%M')}"
-        new_playlist = sp_global.user_playlist_create(sp_user_id_global, new_name, public=False, description="Created via Super SpotiBot Telegram")
+        new_pl = sp_global.user_playlist_create(sp_user_id_global, playlist_name, public=False, description=f"Mixer {mode.upper()} created by SpotiBOT")
         
         for i in range(0, len(final_uris), 100):
-            sp_global.playlist_add_items(new_playlist['id'], final_uris[i:i+100])
-
-        await update.message.reply_text(f"✅ ¡Listo! Playlist creada:\n{new_playlist['external_urls']['spotify']}")
+            sp_global.playlist_add_items(new_pl['id'], final_uris[i:i+100])
+            
+        await update.message.reply_text(f"✅ Playlist creada con éxito:\n{new_pl['external_urls']['spotify']}")
 
     except Exception as e:
         logger.error(e)
         await update.message.reply_text(f"❌ Error: {e}")
 
+    await finish_task(update)
     return ConversationHandler.END
 
 # ============================================================================
-#   BOT 3: CREATOR/UPDATER
+#   BOT 3: UPDATER
 # ============================================================================
-
 async def enter_creator_mode(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not check_auth_telegram(update.message.from_user.id):
-        await update.message.reply_text("⛔ No tienes permiso.")
-        return ConversationHandler.END
+    if not await check_auth_telegram(update): return ConversationHandler.END
     
     if not os.path.exists("playlists.txt"):
         await update.message.reply_text("⚠️ Error: No encuentro el archivo 'playlists.txt' en el servidor.")
@@ -345,8 +330,8 @@ async def enter_creator_mode(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     await update.message.reply_text(
         "🆕 **MODO ACTUALIZADOR**\n"
-        "Actualizaré tus playlists basadas en 'playlists.txt'.\n"
-        "¿De cuántos días atrás quieres buscar novedades? (Ej: 7)"
+        "Se actualizaré tus playlists personales basándome en el archivo `playlists.txt`.\n"
+        "Por favor, introduce el **número de días** de antigüedad para buscar novedades (ej: 7 para la última semana)."
     )
     return CREATOR_DAYS
 
@@ -357,9 +342,9 @@ async def creator_process_days(update: Update, context: ContextTypes.DEFAULT_TYP
     except ValueError:
         days = 7
     
-    await update.message.reply_text(f"🚀 Iniciando actualización (Días: {days}). Esto puede tardar...")
-
+    await update.message.reply_text(f"🚀 Buscando novedades de los últimos {days} días...")
     msg_log = ""
+    
     try:
         playlists_map = {}
         with open("playlists.txt", "r", encoding="utf-8") as f:
@@ -372,9 +357,9 @@ async def creator_process_days(update: Update, context: ContextTypes.DEFAULT_TYP
                     genre = genre.replace("&", "AND").replace("_", " ").upper()
                     if genre not in playlists_map: playlists_map[genre] = []
                     playlists_map[genre].append(pid)
-
-        global_tracks = load_txt_set("global_tracks.txt")
         
+        global_tracks = load_txt_set("global_tracks.txt")
+
         for genre, pids in playlists_map.items():
             target_name = f"{genre} {datetime.date.today().year}"
             target_id = None
@@ -419,23 +404,19 @@ async def creator_process_days(update: Update, context: ContextTypes.DEFAULT_TYP
                                         new_local_items.append(tid)
                             except: pass
                         res = sp_global.next(res) if res['next'] else None
-                    
-                    if new_local_items:
-                        save_txt_set(local_hist_path, new_local_items)
-                        
+                    if new_local_items: save_txt_set(local_hist_path, new_local_items)
                 except Exception as e:
-                    logger.warning(f"Error en playlist {pid}: {e}")
+                    logger.warning(f"Error {pid}: {e}")
 
             if tracks_to_add:
                 unique_uris = list(set(tracks_to_add))
                 for i in range(0, len(unique_uris), 100):
                     sp_global.playlist_add_items(target_id, unique_uris[i:i+100])
-                
                 new_ids = [u.split(":")[-1] for u in unique_uris]
                 save_txt_set("global_tracks.txt", new_ids)
-                msg_log += f"✅ {genre}: +{len(unique_uris)} canciones.\n"
+                msg_log += f"✅ {genre}: +{len(unique_uris)}\n"
             else:
-                msg_log += f"💤 {genre}: Sin novedades.\n"
+                msg_log += f"💤 {genre}: 0\n"
 
         await update.message.reply_text(f"🏁 **Resumen:**\n{msg_log}")
 
@@ -443,45 +424,157 @@ async def creator_process_days(update: Update, context: ContextTypes.DEFAULT_TYP
         logger.error(e)
         await update.message.reply_text(f"❌ Error crítico: {str(e)}")
 
+    await finish_task(update)
     return ConversationHandler.END
 
 # ============================================================================
-#   MAIN EXECUTION
+#   BOT 4: SORT (ORDENAR PLAYLIST EXISTENTE)
 # ============================================================================
+async def enter_sort_mode(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await check_auth_telegram(update): return ConversationHandler.END
+    await update.message.reply_text(
+        "⚠️ **MODO ORDENAR**\n"
+        "Este modo ordenará la playlist que me pases de **mayor a menor popularidad**.\n\n"
+        "❗ **Atención:** Esto modificará el orden original de tu playlist permanentemente.\n"
+        "Envíame el enlace de la playlist TUYA que quieres ordenar."
+    )
+    return SORT_URL
 
+async def process_sort_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    url = update.message.text.strip()
+    try:
+        pid = url.split("playlist/")[1].split("?")[0]
+        
+        # Verificación de dueño
+        is_owner, err_msg = verify_spotify_ownership(pid)
+        if not is_owner:
+            await update.message.reply_markdown(err_msg)
+            return ConversationHandler.END
+
+        await update.message.reply_text("⏳ Ordenando por popularidad...")
+        
+        tracks = get_all_tracks_from_playlist(pid)
+        if not tracks:
+            await update.message.reply_text("❌ Playlist vacía.")
+            return ConversationHandler.END
+
+        tracks.sort(key=lambda x: x['popularity'], reverse=True)
+        sorted_uris = [t['uri'] for t in tracks]
+
+        sp_global.playlist_replace_items(pid, sorted_uris[:100])
+        if len(sorted_uris) > 100:
+            for i in range(100, len(sorted_uris), 100):
+                sp_global.playlist_add_items(pid, sorted_uris[i:i+100])
+                
+        await update.message.reply_text(f"✅ **Hecho:** {len(sorted_uris)} canciones reordenadas por fama.")
+
+    except Exception as e:
+        logger.error(e)
+        await update.message.reply_text(f"❌ Error: {e}")
+    
+    await finish_task(update)
+    return ConversationHandler.END
+
+# ============================================================================
+#   BOT 5: TOP FILTER (MANTENER SOLO LAS MEJORES)
+# ============================================================================
+async def enter_top_mode(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await check_auth_telegram(update): return ConversationHandler.END
+    await update.message.reply_text(
+        "✂️ **MODO TOP FILTER**\n"
+        "Este modo ordenará de mayor a menor popularidad y se quedará **solamente con las 'n' mejores canciones**, eliminando el resto.\n"
+        "Envíame el enlace de la playlist."
+    )
+    return TOP_URL
+
+async def process_top_url(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["top_url"] = update.message.text.strip()
+    await update.message.reply_text("🔢 ¿Con cuántas canciones quieres quedarte? (Ej: 50)")
+    return TOP_NUMBER
+
+async def process_top_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        n = int(update.message.text.strip())
+        url = context.user_data["top_url"]
+        pid = url.split("playlist/")[1].split("?")[0]
+        
+        is_owner, err_msg = verify_spotify_ownership(pid)
+        if not is_owner:
+            await update.message.reply_markdown(err_msg)
+            return ConversationHandler.END
+
+        await update.message.reply_text(f"⏳ Filtrando Top {n}...")
+        
+        tracks = get_all_tracks_from_playlist(pid)
+        tracks.sort(key=lambda x: x['popularity'], reverse=True)
+        
+        top_tracks = tracks[:n]
+        top_uris = [t['uri'] for t in top_tracks]
+        
+        sp_global.playlist_replace_items(pid, top_uris[:100])
+        if len(top_uris) > 100:
+            for i in range(100, len(top_uris), 100):
+                sp_global.playlist_add_items(pid, top_uris[i:i+100])
+                
+        await update.message.reply_text(f"✅ **Listo:** Tu playlist ahora solo tiene las {len(top_uris)} mejores canciones.")
+
+    except ValueError:
+        await update.message.reply_text("❌ Debes introducir un número.")
+    except Exception as e:
+        logger.error(e)
+        await update.message.reply_text(f"❌ Error: {e}")
+        
+    await finish_task(update)
+    return ConversationHandler.END
+
+
+# ============================================================================
+#   MAIN
+# ============================================================================
 def main():
     if not init_spotify_auth():
-        print("❌ No se pudo autenticar en Spotify. Saliendo...")
+        print("❌ Error Auth")
         return
 
     nest_asyncio.apply()
-    print("🤖 Iniciando Bot de Telegram...")
+    print("🤖 Iniciando Bot...")
     
     application = Application.builder().token(TELEGRAM_TOKEN).build()
 
+    entry_points_list = [
+        CommandHandler("start", start),
+        CommandHandler("rank", enter_rank_mode),
+        CommandHandler("mixer", enter_mixer_mode),
+        CommandHandler("updater", enter_creator_mode),
+        CommandHandler("sort", enter_sort_mode),
+        CommandHandler("top", enter_top_mode)
+    ]
+
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("start", start)],
+        entry_points=entry_points_list,
         states={
-            CHOOSING_MODE: [
-                CommandHandler("rank", enter_rank_mode),
-                CommandHandler("mixer", enter_mixer_mode),
-                # COMANDO ACTUALIZADO
-                CommandHandler("updater", enter_creator_mode)
-            ],
+            CHOOSING_MODE: entry_points_list, 
+            
             RANK_URL: [MessageHandler(filters.TEXT & ~filters.COMMAND, rank_handle_playlist)],
             RANK_NUMBER: [MessageHandler(filters.TEXT & ~filters.COMMAND, rank_handle_number)],
+            
             MIXER_INPUT: [
                 CommandHandler("modo", mixer_set_mode_command),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, mixer_process_input)
             ],
-            CREATOR_DAYS: [MessageHandler(filters.TEXT & ~filters.COMMAND, creator_process_days)]
+            MIXER_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, mixer_process_name)],
+            
+            CREATOR_DAYS: [MessageHandler(filters.TEXT & ~filters.COMMAND, creator_process_days)],
+            
+            SORT_URL: [MessageHandler(filters.TEXT & ~filters.COMMAND, process_sort_url)],
+            
+            TOP_URL: [MessageHandler(filters.TEXT & ~filters.COMMAND, process_top_url)],
+            TOP_NUMBER: [MessageHandler(filters.TEXT & ~filters.COMMAND, process_top_number)],
         },
         fallbacks=[CommandHandler("cancel", cancel), CommandHandler("start", start)]
     )
 
     application.add_handler(conv_handler)
-    
-    print("🚀 Bot en ejecución. Presiona Ctrl+C para detener.")
     application.run_polling()
 
 if __name__ == "__main__":
