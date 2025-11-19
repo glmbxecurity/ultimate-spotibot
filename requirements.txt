@@ -1,4 +1,0 @@
-python-telegram-bot
-spotipy
-pandas
-nest_asyncio
