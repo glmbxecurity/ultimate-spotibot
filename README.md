@@ -8,6 +8,10 @@ El proyecto incluye dos interfaces para usar las mismas herramientas:
 * 🤖 **Bot de Telegram:** Para controlar todo desde el chat de tu móvil o PC.
 * 💻 **CLI (Consola):** Para ejecutar scripts directamente en tu terminal sin necesidad de Telegram.
 
+### Antes de empezar
+* Si vas a usar la version docker, puedes ignorar la parte de instalación. mejor usa este sencillo tutorial: [Tutorial con docker](https://localhost)  
+* Si vas a usar la version normal, solamente necesitarás el cli_spotibot.py y/o bot_spotibot.py + el playlists.txt. Puedes ignorar el resto
+
 ## 🚀 Funcionalidades
 
 El bot cuenta con 5 herramientas principales divididas en análisis, creación y edición:
